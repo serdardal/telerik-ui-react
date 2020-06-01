@@ -8,47 +8,19 @@ interface PropsType {
 }
 
 async function getData(url: string): Promise<any | string[]> {
-  var result;
-  await fetch("http://localhost:61909/" + url)
-    .then((res) => {
-      if (res.ok) {
-        return res.json();
-      }
-    })
-    .then((json) => {
-      result = json;
-    });
-
-  return result;
+  return $.ajax({
+    url: "http://localhost:61909/" + url,
+    method: "get",
+  });
 }
 
 async function postData(url: string, data: any): Promise<any | string[]> {
-  // var result;
-  // console.log(data);
-  // await fetch("http://localhost:61909/" + url, {
-  //   method: "POST",
-  //   body: JSON.stringify(data),
-  //   headers: {
-  //     "Content-Type": "application/json",
-  //   },
-  // })
-  //   .then((res) => {
-  //     if (res.ok) {
-  //       return res.json();
-  //     }
-  //   })
-  //   .then((json) => {
-  //     result = json;
-  //   });
-
-  // return result;
-
   return $.ajax({
     url: "http://localhost:61909/" + url,
     method: "post",
     contentType: "application/json",
     data: JSON.stringify(data),
-});
+  });
 }
 
 function b64toBlob(dataURI: string) {
@@ -68,9 +40,10 @@ function b64toBlob(dataURI: string) {
 class SpreadSheet extends Component<PropsType, {}> {
   constructor(props: PropsType) {
     super(props);
-    
+
     this.loadTemplateNames = this.loadTemplateNames.bind(this);
     this.handleSelectTemplate = this.handleSelectTemplate.bind(this);
+    this.lockAllCells = this.lockAllCells.bind(this);
   }
   spread: any;
   logo = "";
@@ -81,14 +54,21 @@ class SpreadSheet extends Component<PropsType, {}> {
     this.loadTemplateNames();
   }
 
+  componentWillUnmount(){
+    this.spread.getKendoSpreadsheet().destroy();
+    $("#spreadsheet").empty();
+  }
+
   async loadTemplateNames() {
-    var names = await getData("SecondPage/GetTemplateNames");
-    if (names !== undefined) {
+    try {
+      var names = await getData("SecondPage/GetTemplateNames");
       names.map((name: string) => {
         var option = document.createElement("option");
         option.text = name;
         $("#templateNames").append(option);
       });
+    } catch (err) {
+      console.log(err);
     }
   }
 
@@ -117,13 +97,25 @@ class SpreadSheet extends Component<PropsType, {}> {
   async openTemplate(name: string, logoName: string) {
     var url = "SecondPage/GetTemplateByName/";
     var data = { templateName: name, logoName: logoName };
-    var response = await postData(url, data);
-    if (response !== undefined) {
+    try {
+      var response = await postData(url, data);
       console.log(response);
-      var sheet = this.spread.getKendoSpreadsheet();
-      await sheet.fromFile(b64toBlob(response));
-      // lockAllCells();
+      var spreadsheet = this.spread.getKendoSpreadsheet();
+      await spreadsheet.fromFile(b64toBlob(response));
+      this.lockAllCells();
       // await unlockCells(name, true);
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
+  lockAllCells() {
+    //A1 den CX200 e kadar olan celler disable edilir.
+    var sheetList = this.spread.getKendoSpreadsheet().sheets();
+    for (var i = 0; i < sheetList.length; i++) {
+      var sheet = sheetList[i];
+      var range = sheet.range("A1:CX200");
+      range.enable(false);
     }
   }
 
