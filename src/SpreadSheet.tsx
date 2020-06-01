@@ -1,15 +1,15 @@
 import React, { Component } from "react";
-import $ from "jquery";
+import "@progress/kendo-theme-default/dist/all.css";
 import "@progress/kendo-ui/";
+import $ from "@progress/kendo-ui/node_modules/jquery";
 
 interface PropsType {
   children: JSX.Element;
 }
 
 class SpreadSheet extends Component<PropsType, {}> {
-  spread: any;
   componentDidMount() {
-    this.spread = $("#spreadsheet").kendoSpreadsheet();
+    $("#spreadsheet").kendoSpreadsheet();
   }
 
   render() {
