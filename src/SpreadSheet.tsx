@@ -44,17 +44,23 @@ class SpreadSheet extends Component<PropsType, {}> {
     this.loadTemplateNames = this.loadTemplateNames.bind(this);
     this.handleSelectTemplate = this.handleSelectTemplate.bind(this);
     this.lockAllCells = this.lockAllCells.bind(this);
+    this.unlockCells = this.unlockCells.bind(this);
+    this.lockShipParticularCells=this.lockShipParticularCells.bind(this);
   }
   spread: any;
   logo = "";
   currentTemplateName = "";
+  dataCellTables: any;
+  notNullCellTables: any;
+  endMarks: any;
+  customFormattedCellTables: any;
 
   componentDidMount() {
     this.spread = $("#spreadsheet").kendoSpreadsheet();
     this.loadTemplateNames();
   }
 
-  componentWillUnmount(){
+  componentWillUnmount() {
     this.spread.getKendoSpreadsheet().destroy();
     $("#spreadsheet").empty();
   }
@@ -83,15 +89,15 @@ class SpreadSheet extends Component<PropsType, {}> {
 
     this.currentTemplateName = selected;
 
-    // $("#nameInput").val("");
-    // $("#nameInput").prop("disabled", false);
+    $("#nameInput").val("");
+    $("#nameInput").prop("disabled", false);
 
-    // $("#dateInput").prop("disabled", false);
+    $("#dateInput").prop("disabled", false);
 
-    // $("#saveButton").show();
-    // $("#updateButton").hide();
-    // $("#approveButton").show();
-    // $("#exportProtectedButton").hide();
+    $("#saveButton").show();
+    $("#updateButton").hide();
+    $("#approveButton").show();
+    $("#exportProtectedButton").hide();
   }
 
   async openTemplate(name: string, logoName: string) {
@@ -99,11 +105,10 @@ class SpreadSheet extends Component<PropsType, {}> {
     var data = { templateName: name, logoName: logoName };
     try {
       var response = await postData(url, data);
-      console.log(response);
       var spreadsheet = this.spread.getKendoSpreadsheet();
       await spreadsheet.fromFile(b64toBlob(response));
       this.lockAllCells();
-      // await unlockCells(name, true);
+      this.unlockCells(name, true);
     } catch (err) {
       console.log(err);
     }
@@ -118,6 +123,75 @@ class SpreadSheet extends Component<PropsType, {}> {
       range.enable(false);
     }
   }
+
+  async unlockCells(docName: string, isTemplate: boolean) {
+    var data = { documentName: docName, isTemplate: isTemplate };
+    try {
+      var response = await postData("SecondPage/GetUnlockedCells/", data);
+      var sheetList = this.spread.getKendoSpreadsheet().sheets();
+
+      //merge olmayan data hücrelerin enable edilmesi
+      for (var k = 0; k < sheetList.length; k++) {
+        var cellList = response.notMergedDataCellTables[k].cellList;
+        var sheet = sheetList[k];
+
+        for (var i = 0; i < cellList.length; i++) {
+          //Telerik Spreadsheets hücre indexleri 0 dan başlıyor fakat EPPlus'ta 1 den başlıyor
+          //bu nedenle 1 çıkarıyoruz.
+          var range = sheet.range(
+            cellList[i].rowIndex - 1,
+            cellList[i].columnIndex - 1
+          );
+          range.enable(true);
+        }
+      }
+
+      //merge edilmiş data hücrelerin enable edilmesi
+      //sadece veri yazılacak hücreyi (sol üst hücre) enable etmek yeterli olmuyor.
+      //merge edilmiş tüm hücrelerin enable edilmesi gerekiyor.
+      var mergedTables = response.mergedRangesTables;
+
+      for (var k = 0; k < sheetList.length; k++) {
+        var mergedAddressList = mergedTables[k].mergedCellList;
+        var sheet = sheetList[k];
+
+        for (var i = 0; i < mergedAddressList.length; i++) {
+          var range = sheet.range(mergedAddressList[i]);
+          range.enable(true);
+        }
+      }
+
+      //ship particular hücrelerin disable edilmesi
+      var shipParticularCells = response.shipParticularCellTables;
+      this.lockShipParticularCells(shipParticularCells);
+
+      //değişkenlerin atanması
+      this.dataCellTables = response.notMergedDataCellTables;
+      for (var i = 0; i < this.dataCellTables.length; i++) {
+        this.dataCellTables[i].cellList = this.dataCellTables[
+          i
+        ].cellList.concat(response.mergedDataCellTables[i].cellList);
+      }
+      this.notNullCellTables = response.notNullCellTables;
+      this.endMarks = response.endMarks;
+      this.customFormattedCellTables = response.customFormattedCellTables;
+      // findNotNullCellValidations();
+    } catch (err) {}
+  }
+
+  lockShipParticularCells(shipParticularCells:any) {
+    var sheetList = this.spread.getKendoSpreadsheet().sheets();
+
+    for (var i = 0; i < sheetList.length; i++) {
+        var sheet = sheetList[i];
+        var shipParticularCellList = shipParticularCells[i].cellList;
+
+        for (var j = 0; j < shipParticularCellList.length; j++) {
+            var range = sheet.range(shipParticularCellList[j].rowIndex - 1, shipParticularCellList[j].columnIndex - 1)
+            range.enable(false);
+        }
+    }
+}
 
   render() {
     return (
