@@ -45,7 +45,9 @@ class SpreadSheet extends Component<PropsType, {}> {
     this.handleSelectTemplate = this.handleSelectTemplate.bind(this);
     this.lockAllCells = this.lockAllCells.bind(this);
     this.unlockCells = this.unlockCells.bind(this);
-    this.lockShipParticularCells=this.lockShipParticularCells.bind(this);
+    this.lockShipParticularCells = this.lockShipParticularCells.bind(this);
+    this.handleSaveButton = this.handleSaveButton.bind(this);
+    this.export = this.export.bind(this);
   }
   spread: any;
   logo = "";
@@ -56,9 +58,55 @@ class SpreadSheet extends Component<PropsType, {}> {
   customFormattedCellTables: any;
 
   componentDidMount() {
-    this.spread = $("#spreadsheet").kendoSpreadsheet();
+    var _export = this.export;
+
+    this.spread = $("#spreadsheet").kendoSpreadsheet({
+      excelExport: function (e:any){
+        _export(e);
+      }
+    });
     this.loadTemplateNames();
   }
+
+  async export(e:any){
+    var fileName = $("#nameInput").val();
+    if (this.currentTemplateName !== "") {
+        fileName = this.currentTemplateName.replace(".xlsx", "") + "_" + $("#nameInput").val() + "_" + $("#dateInput").val();
+    }
+
+    // Prevent the default behavior which will prompt the user to save the generated file.
+    e.preventDefault();
+
+    //resimlerin kaldırılması
+    //resimler kaldırılmadan toDataURL() çalıştırılırsa patlıyor
+    var sheets = e.workbook.sheets;
+    for (var i = 0; i < sheets.length; i++) {
+        var sheet = sheets[i];
+        sheet.drawings = [];
+    }
+
+    // Get the Excel file as a data URL.
+    var workbook = new kendo.ooxml.Workbook(e.workbook);
+    var dataURL = workbook.toDataURL();
+
+    // Strip the data URL prologue.
+    var base64 = dataURL.split(";base64,")[1];
+
+    var logoName = this.logo === "" ? null : this.logo;
+
+    var url = "/SecondPage/SaveFileToTemp"
+    var data = { base64: base64, fileName: fileName, logoName: logoName };
+
+    // Post the base64 encoded content to the server which can save it.
+    try {
+        await postData(url, data);
+        window.location.reload(false);
+    }
+    catch (e) {
+        console.log(e);
+    }
+    
+}
 
   componentWillUnmount() {
     this.spread.getKendoSpreadsheet().destroy();
@@ -98,6 +146,13 @@ class SpreadSheet extends Component<PropsType, {}> {
     $("#updateButton").hide();
     $("#approveButton").show();
     $("#exportProtectedButton").hide();
+  }
+
+  handleSaveButton() {
+    var inputRes = this.checkInputs();
+    if (inputRes) {
+        this.spread.getKendoSpreadsheet().saveAsExcel();
+    }
   }
 
   async openTemplate(name: string, logoName: string) {
@@ -179,18 +234,41 @@ class SpreadSheet extends Component<PropsType, {}> {
     } catch (err) {}
   }
 
-  lockShipParticularCells(shipParticularCells:any) {
+  lockShipParticularCells(shipParticularCells: any) {
     var sheetList = this.spread.getKendoSpreadsheet().sheets();
 
     for (var i = 0; i < sheetList.length; i++) {
-        var sheet = sheetList[i];
-        var shipParticularCellList = shipParticularCells[i].cellList;
+      var sheet = sheetList[i];
+      var shipParticularCellList = shipParticularCells[i].cellList;
 
-        for (var j = 0; j < shipParticularCellList.length; j++) {
-            var range = sheet.range(shipParticularCellList[j].rowIndex - 1, shipParticularCellList[j].columnIndex - 1)
-            range.enable(false);
+      for (var j = 0; j < shipParticularCellList.length; j++) {
+        var range = sheet.range(
+          shipParticularCellList[j].rowIndex - 1,
+          shipParticularCellList[j].columnIndex - 1
+        );
+        range.enable(false);
+      }
+    }
+  }
+
+  checkInputs() {
+    if ($("#nameInput").is(":enabled")) {
+        var fileName = $("#nameInput").val();
+        if (fileName === undefined || fileName === "") {
+            window.alert("Name cannot be empty!");
+            return false;
         }
     }
+    
+    if ($("#dateInput").is(":enabled")) {
+        var date = $("#dateInput").val();
+        if (date === undefined || date === "") {
+            window.alert("Date cannot be empty!");
+            return false;
+        }
+    }
+    
+    return true;
 }
 
   render() {
@@ -250,7 +328,7 @@ class SpreadSheet extends Component<PropsType, {}> {
                 data-date-format="DD MMMM YYYY"></input>
             </div>
             <button
-              onClick={() => {}}
+              onClick={() => {this.handleSaveButton()}}
               style={{ marginLeft: "10px" }}
               id="saveButton">
               Save
