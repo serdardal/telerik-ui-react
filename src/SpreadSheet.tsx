@@ -53,6 +53,7 @@ class SpreadSheet extends Component<PropsType, {}> {
     this.openSavedFileReadOnly = this.openSavedFileReadOnly.bind(this);
     // this.colorCustomFormattedCells = this.colorCustomFormattedCells.bind(this);
     this.openSavedFileEditMode = this.openSavedFileEditMode.bind(this);
+    this.handleUpdateButton = this.handleUpdateButton.bind(this);
   }
   spread: any;
   logo = "";
@@ -202,6 +203,10 @@ class SpreadSheet extends Component<PropsType, {}> {
     if (inputRes) {
       this.spread.getKendoSpreadsheet().saveAsExcel();
     }
+  }
+
+  handleUpdateButton() {
+    this.spread.getKendoSpreadsheet().saveAsExcel();
   }
 
   async openTemplate(name: string, logoName: string) {
@@ -418,7 +423,7 @@ class SpreadSheet extends Component<PropsType, {}> {
               Save
             </button>
             <button
-              onClick={() => {}}
+              onClick={() => {this.handleUpdateButton()}}
               style={{ marginLeft: "10px" }}
               id="updateButton"
               hidden>
