@@ -1,9 +1,5 @@
 import React, { Component } from "react";
-import "@progress/kendo-theme-default/dist/all.css";
-import "@progress/kendo-ui/";
-// TODO: Bu kısım düzeltilecek.
-// @ts-ignore
-import $ from "@progress/kendo-ui/node_modules/jquery";
+import $ from "jquery";
 
 const BASE_URL = "http://10.35.106.61";
 
@@ -37,11 +33,16 @@ function b64toBlob(dataURI: string) {
   });
 }
 
-class SpreadSheet extends Component<{}, {}> {
+interface States {
+  templateNames: string[];
+  selectedTemplate: string | undefined;
+  savedFileNames: string[];
+}
+
+class LeftPane extends Component<{}, States> {
   constructor(props: {}) {
     super(props);
 
-    this.handleSelectTemplate = this.handleSelectTemplate.bind(this);
     this.lockAllCells = this.lockAllCells.bind(this);
     this.unlockCells = this.unlockCells.bind(this);
     this.lockShipParticularCells = this.lockShipParticularCells.bind(this);
@@ -51,6 +52,12 @@ class SpreadSheet extends Component<{}, {}> {
     // this.colorCustomFormattedCells = this.colorCustomFormattedCells.bind(this);
     this.openSavedFileEditMode = this.openSavedFileEditMode.bind(this);
     this.handleUpdateButton = this.handleUpdateButton.bind(this);
+
+    this.state = {
+      templateNames: [],
+      selectedTemplate: undefined,
+      savedFileNames: [],
+    };
   }
 
   spread: any;
@@ -62,65 +69,31 @@ class SpreadSheet extends Component<{}, {}> {
   customFormattedCellTables: any;
 
   componentDidMount() {
-    const _export = this.export;
-
-    this.spread = $("#spreadsheet").kendoSpreadsheet({
-      excelExport: function (e: any) {
-        _export(e);
-      },
-    });
+    this.loadTemplateNames();
+    this.loadSavedFileNames();
   }
 
-  export = async (e: any) => {
-    let fileName = $("#nameInput").val();
-    if (this.currentTemplateName !== "") {
-      fileName =
-        this.currentTemplateName.replace(".xlsx", "") +
-        "_" +
-        $("#nameInput").val() +
-        "_" +
-        $("#dateInput").val();
-    }
-
-    // Prevent the default behavior which will prompt the user to save the generated file.
-    e.preventDefault();
-
-    //resimlerin kaldırılması
-    //resimler kaldırılmadan toDataURL() çalıştırılırsa patlıyor
-    const sheets = e.workbook.sheets;
-    for (let i = 0; i < sheets.length; i++) {
-      const sheet = sheets[i];
-      sheet.drawings = [];
-    }
-
-    // Get the Excel file as a data URL.
-    const workbook = new kendo.ooxml.Workbook(e.workbook);
-    const dataURL = workbook.toDataURL();
-
-    // Strip the data URL prologue.
-    const base64 = dataURL.split(";base64,")[1];
-
-    const logoName = this.logo === "" ? null : this.logo;
-
-    const url = "/SecondPage/SaveFileToTemp";
-    const data = { base64: base64, fileName: fileName, logoName: logoName };
-
-    // Post the base64 encoded content to the server which can save it.
+  loadTemplateNames = async () => {
     try {
-      await postData(url, data);
-      // window.location.reload(false);
-    } catch (e) {
-      console.log(e);
+      const templateNames = await getData("SecondPage/GetTemplateNames");
+      this.setState({ templateNames });
+    } catch (err) {
+      console.log(err);
     }
   };
 
-  // Memory leak oluşmaması için clean-up yapılıyor.
-  componentWillUnmount() {
-    this.spread.getKendoSpreadsheet().destroy();
-    $("#spreadsheet").empty();
-  }
+  loadSavedFileNames = async () => {
+    try {
+      const savedFileNames = await getData(
+        "SecondPage/GetSavedFileNamesFromDB"
+      );
+      this.setState({ savedFileNames });
+    } catch (err) {
+      console.log(err);
+    }
+  };
 
-  handleSelectTemplate() {
+  handleOpenTemplate = () => {
     const selected: any = $("#templateNames option:selected").val();
     if ($("#bimarLogoCheckbox").is(":checked")) {
       this.logo = "bimar.jpg";
@@ -140,7 +113,7 @@ class SpreadSheet extends Component<{}, {}> {
     $("#updateButton").hide();
     $("#approveButton").show();
     $("#exportProtectedButton").hide();
-  }
+  };
 
   handleSelectSavedFile() {
     const readonly = $("#readonlyCheckbox").is(":checked");
@@ -327,8 +300,56 @@ class SpreadSheet extends Component<{}, {}> {
   }
 
   render() {
-    return <div id="spreadsheet" style={{ float: "left", width: "100%" }} />;
+    const { templateNames, selectedTemplate, savedFileNames } = this.state;
+    return (
+      <div id="controlBox" style={{ width: "20%", height: 700, float: "left" }}>
+        <select
+          style={{ width: "100%", height: "35%", overflowX: "auto" }}
+          multiple
+          value={selectedTemplate}
+          onChange={(e) => {
+            this.setState({ selectedTemplate: e.target.value });
+          }}
+        >
+          {templateNames.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+        <button onClick={this.handleOpenTemplate}>Open Template</button>
+        <label>BimarLogo:</label>
+        <input type="checkbox" id="bimarLogoCheckbox" />
+
+        <hr />
+
+        <select
+          id="savedFileNames"
+          style={{ width: "100%", height: "35%", overflowX: "auto" }}
+          multiple
+        >
+          {savedFileNames.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+        <button
+          id="selectSavedFile"
+          onClick={() => {
+            this.handleSelectSavedFile();
+          }}
+        >
+          Open Saved File
+        </button>
+        <label>Readonly:</label>
+        <input type="checkbox" id="readonlyCheckbox" />
+        <button id="openInNewTabButton" onClick={() => {}}>
+          Open In New Tab
+        </button>
+      </div>
+    );
   }
 }
 
-export default SpreadSheet;
+export default LeftPane;

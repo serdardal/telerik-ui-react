@@ -1,10 +1,10 @@
 import React from "react";
-import SpreadSheet from "./SpreadSheet.tsx";
+import FormPage from "./FormPage";
 
 function App() {
   return (
     <div className="App">
-      <SpreadSheet></SpreadSheet>
+      <FormPage />
     </div>
   );
 }

@@ -4,6 +4,8 @@ import "@progress/kendo-ui/";
 // TODO: Bu kısım düzeltilecek.
 // @ts-ignore
 import $ from "@progress/kendo-ui/node_modules/jquery";
+import SpreadSheet from "./SpreadSheet";
+import LeftPane from "./LeftPane";
 
 const BASE_URL = "http://10.35.106.61";
 
@@ -37,7 +39,7 @@ function b64toBlob(dataURI: string) {
   });
 }
 
-class SpreadSheet extends Component<{}, {}> {
+class FormPage extends Component<{}, {}> {
   constructor(props: {}) {
     super(props);
 
@@ -60,65 +62,6 @@ class SpreadSheet extends Component<{}, {}> {
   notNullCellTables: any;
   endMarks: any;
   customFormattedCellTables: any;
-
-  componentDidMount() {
-    const _export = this.export;
-
-    this.spread = $("#spreadsheet").kendoSpreadsheet({
-      excelExport: function (e: any) {
-        _export(e);
-      },
-    });
-  }
-
-  export = async (e: any) => {
-    let fileName = $("#nameInput").val();
-    if (this.currentTemplateName !== "") {
-      fileName =
-        this.currentTemplateName.replace(".xlsx", "") +
-        "_" +
-        $("#nameInput").val() +
-        "_" +
-        $("#dateInput").val();
-    }
-
-    // Prevent the default behavior which will prompt the user to save the generated file.
-    e.preventDefault();
-
-    //resimlerin kaldırılması
-    //resimler kaldırılmadan toDataURL() çalıştırılırsa patlıyor
-    const sheets = e.workbook.sheets;
-    for (let i = 0; i < sheets.length; i++) {
-      const sheet = sheets[i];
-      sheet.drawings = [];
-    }
-
-    // Get the Excel file as a data URL.
-    const workbook = new kendo.ooxml.Workbook(e.workbook);
-    const dataURL = workbook.toDataURL();
-
-    // Strip the data URL prologue.
-    const base64 = dataURL.split(";base64,")[1];
-
-    const logoName = this.logo === "" ? null : this.logo;
-
-    const url = "/SecondPage/SaveFileToTemp";
-    const data = { base64: base64, fileName: fileName, logoName: logoName };
-
-    // Post the base64 encoded content to the server which can save it.
-    try {
-      await postData(url, data);
-      // window.location.reload(false);
-    } catch (e) {
-      console.log(e);
-    }
-  };
-
-  // Memory leak oluşmaması için clean-up yapılıyor.
-  componentWillUnmount() {
-    this.spread.getKendoSpreadsheet().destroy();
-    $("#spreadsheet").empty();
-  }
 
   handleSelectTemplate() {
     const selected: any = $("#templateNames option:selected").val();
@@ -327,8 +270,59 @@ class SpreadSheet extends Component<{}, {}> {
   }
 
   render() {
-    return <div id="spreadsheet" style={{ float: "left", width: "100%" }} />;
+    return (
+      <div style={{ marginTop: 10, height: 100 }}>
+        <LeftPane />
+
+        <div style={{ width: "80%", float: "left" }}>
+          <button onClick={() => {}} id="exportProtectedButton" hidden>
+            Export Protected
+          </button>
+          <div>
+            <div style={{ float: "left", marginLeft: "10px" }}>
+              <label>Name:</label>
+              <input type="text" id="nameInput"></input>
+            </div>
+            <div style={{ float: "left", marginLeft: "10px" }}>
+              <label>Date:</label>
+              <input
+                type="date"
+                id="dateInput"
+                data-date-format="DD MMMM YYYY"
+              ></input>
+            </div>
+            <button
+              onClick={() => {
+                this.handleSaveButton();
+              }}
+              style={{ marginLeft: "10px" }}
+              id="saveButton"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => {
+                this.handleUpdateButton();
+              }}
+              style={{ marginLeft: "10px" }}
+              id="updateButton"
+              hidden
+            >
+              Update
+            </button>
+            <button
+              onClick={() => {}}
+              style={{ marginLeft: "10px" }}
+              id="approveButton"
+            >
+              Approve
+            </button>
+            <SpreadSheet />
+          </div>
+        </div>
+      </div>
+    );
   }
 }
 
-export default SpreadSheet;
+export default FormPage;
